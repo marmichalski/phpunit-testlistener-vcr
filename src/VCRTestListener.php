@@ -14,7 +14,7 @@ use VCR\VCR;
 /**
  * A TestListener that integrates with PHP-VCR.
  *
- * Here is an example XML configuration for activating this listener:
+ * Here is an example XML configuration for activating this listener in PHPUnit < 10.
  *
  * <code>
  *   <listeners>
@@ -32,61 +32,13 @@ final class VCRTestListener implements TestListener
     {
         $class = \get_class($test);
         \assert($test instanceof TestCase);
-        $method = $test->getName(false);
 
-        if (!method_exists($class, $method)) {
-            return;
-        }
-
-        $reflection = new \ReflectionMethod($class, $method);
-        $docBlock = $reflection->getDocComment();
-
-        // Use regex to parse the doc_block for a specific annotation
-        $parsed = self::parseDocBlock($docBlock, '@vcr');
-        $cassetteName = array_pop($parsed);
-
-        if (empty($cassetteName)) {
-            return;
-        }
-
-        // If the cassette name ends in .json, then use the JSON storage format
-        if (substr($cassetteName, -5) === '.json') {
-            VCR::configure()->setStorage('json');
-        }
-
-        VCR::turnOn();
-        VCR::insertCassette($cassetteName);
-    }
-
-    private static function parseDocBlock($docBlock, $tag): array
-    {
-        $matches = [];
-
-        if (empty($docBlock)) {
-            return $matches;
-        }
-
-        $regex = "/{$tag} (.*)(\\r\\n|\\r|\\n)/U";
-        preg_match_all($regex, $docBlock, $matches);
-
-        if (empty($matches[1])) {
-            return array();
-        }
-
-        // Removed extra index
-        $matches = $matches[1];
-
-        // Trim the results, array item by array item
-        foreach ($matches as $ix => $match) {
-            $matches[$ix] = trim($match);
-        }
-
-        return $matches;
+        VCRTestHandler::onStart($class, $test->getName(false));
     }
 
     public function endTest(Test $test, float $time): void
     {
-        VCR::turnOff();
+        VCRTestHandler::onEnd();
     }
 
     public function addError(Test $test, \Throwable $t, float $time): void
